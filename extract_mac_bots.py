@@ -22,8 +22,6 @@ masters_to_ignore = [
   "master.tryserver.chromium.perf",
   "master.internal.tryserver.webrtc",
   "master.chrome.perf_internal.try",
-  "master.chromium.gpu",
-  "master.chromium.memory",
   "master.chromium.chromedriver",
   "master.tryserver.v8",
   "master.chromium.webkit",
@@ -67,7 +65,7 @@ def IsMasterBlacklisted(mastername):
 
 def IsBuilderBlacklisted(buildername):
   for keyword in builder_keywords_to_ignore:
-    if keyword in buildername:
+    if keyword in buildername.lower():
       return True
   return False
 
@@ -94,16 +92,23 @@ def ExtractRelevantBots():
     bot_dictionary[mastername].append(bot)
   return bot_dictionary
 
-def ExtractBuilderToHostname():
+def ExtractMasterToBuilders():
   """
-  Returns a dictionary of buildername : list of hostnames.
+  Returns a dictionary of mastername : { dictionary of builder name : list of hostnames }
+
+  Note: builder names are not unique - they are namespaced within a given
+  master.
   """
   builder_dicts = ExtractDictionaryFromJSONFile('buildermap.json')
-  builder_map = {}
+  master_map = {}
   for builder_dict in builder_dicts:
+    mastername = builder_dict["mastername"]
+    if mastername not in master_map:
+      master_map[mastername] = {}
     builder_name = builder_dict["builder"]
-    builder_map[builder_name] = builder_dict["hostname"]
-  return builder_map
+    hostnames = builder_dict["hostname"]
+    master_map[mastername][builder_name] = hostnames
+  return master_map
 
 def ListMasters():
   bot_dictionary = ExtractRelevantBots()
@@ -130,15 +135,20 @@ def ListBuilders(mastername):
     print builder
 
 def ListVms(mastername):
-  builders = BuildersForMaster(mastername)
-  builder_map = ExtractBuilderToHostname()
-  hostnames = set()
-  for builder in builders:
-    for hostname in builder_map[builder]:
-      hostnames.add(hostname)
-  hostnames = sorted(hostnames)
-  for hostname in hostnames:
-    print hostname
+  relevant_builders = BuildersForMaster(mastername)
+  master_map = ExtractMasterToBuilders()
+  builder_map = master_map[mastername]
+  for builder in relevant_builders:
+    print builder
+    print builder_map[builder]
+    print '---------------'
+  #hostnames = set()
+  #for builder in builders:
+  #  for hostname in builder_map[builder]:
+  #    hostnames.add(hostname)
+  #hostnames = sorted(hostnames)
+  #for hostname in hostnames:
+  #  print hostname
 
 
 if __name__ == "__main__":
